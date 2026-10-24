@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Print Cost Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap">
+<style>
+  :root{
+    --bg:#0e1117; --card:#161b24; --line:#262e3b; --field:#1c2330;
+    --text:#e6eaf0; --muted:#8d98a8;
+    --blue:#3b6ea5; --blue-hi:#5b93d1;
+    --orange:#f29a3d; --orange-hi:#ffb366;
+    --red:#ef5b5b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',system-ui,sans-serif;color:var(--text);min-height:100vh;
+    background:radial-gradient(800px 420px at 0% -10%,rgba(59,110,165,.22),transparent 60%),
+               radial-gradient(640px 380px at 100% 0%,rgba(242,154,61,.12),transparent 60%),var(--bg);
+    padding:20px 14px 96px}
+  .wrap{max-width:960px;margin:0 auto}
+  header{margin-bottom:18px}
+  h1{margin:0;font-size:clamp(22px,4.5vw,30px);font-weight:700}
+  h1 em{font-style:normal;color:var(--orange)}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px}
+
+  .grid{display:grid;gap:16px;grid-template-columns:1.1fr .9fr;align-items:start}
+  @media (max-width:800px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card h2{margin:0 0 4px;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--blue-hi)}
+  .card .hint{color:var(--muted);font-size:13px;margin:0 0 12px}
+
+  .field{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+  .field:first-of-type{border-top:0;padding-top:0}
+  .field label{font-size:14px;display:flex;justify-content:space-between;gap:8px}
+  .field label span{color:var(--muted);font-size:12px}
+  .inp{position:relative}
+  .inp input{width:100%;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:10px;
+    padding:10px 56px 10px 12px;font:inherit;font-size:16px;font-variant-numeric:tabular-nums}
+  .inp input:focus{outline:none;border-color:var(--blue-hi);box-shadow:0 0 0 3px rgba(91,147,209,.25)}
+  .inp .unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none}
+
+  .sub-head{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+  .result{position:sticky;top:12px}
+  .total{background:linear-gradient(160deg,var(--blue) 0%,#1d2a3d 100%);border-radius:14px;padding:18px;margin-bottom:14px}
+  .total .l{font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.85}
+  .total .v{font-size:clamp(30px,6vw,40px);font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .total .s{font-size:13px;opacity:.85;margin-top:4px}
+  .total.profit{background:linear-gradient(160deg,var(--orange) 0%,#b8601c 100%);color:#1a1206}
+  .total.profit .v{color:#1a1206}
+  .total.loss{background:linear-gradient(160deg,var(--red) 0%,#7a2424 100%)}
+
+  .line{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+  .line:first-child{border-top:0}
+  .line span small{display:block;color:var(--muted);font-size:12px}
+  .line b{font-variant-numeric:tabular-nums;white-space:nowrap;align-self:center}
+  .line.sum b{color:var(--orange-hi)}
+  .bar{height:4px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--blue-hi);border-radius:2px;transition:width .2s}
+
+  .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  button{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font:inherit;font-size:14px;cursor:pointer}
+  button:hover{color:var(--text);border-color:var(--blue-hi)}
+  button:focus-visible{outline:2px solid var(--blue-hi);outline-offset:2px}
+  .err{color:var(--red);font-size:12px;min-height:14px;margin-top:4px}
+  .foot{color:var(--muted);font-size:12px;line-height:1.6;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>3D Print <em>Cost</em> Calculator</h1>
+  <div class="sub">Enter your print details. Everything updates as you type.</div>
+</header>
+
+<div class="grid">
+  <section class="card">
+    <h2>Print details</h2>
+    <p class="hint">Change any value. Results update live.</p>
+
+    <div class="field">
+      <label for="filamentCostPerGram">Filament price <span>per gram</span></label>
+      <div class="inp"><input id="filamentCostPerGram" type="number" inputmode="decimal" step="any" min="0"><span class="unit">₹/g</span></div>
+    </div>
+    <div class="field">
+      <label for="filamentUsedG">Filament used</label>
+      <div class="inp"><input id="filamentUsedG" type="number" inputmode="decimal" step="any" min="0"><span class="unit">g</span></div>
+    </div>
+    <div class="field">
+      <label for="printTimeH">Print time</label>
+      <div class="inp"><input id="printTimeH" type="number" inputmode="decimal" step="any" min="0"><span class="unit">hours</span></div>
+    </div>
+    <div class="field">
+      <label for="electricityPerKwh">Electricity rate <span>per kWh</span></label>
+      <div class="inp"><input id="electricityPerKwh" type="number" inputmode="decimal" step="any" min="0"><span class="unit">₹/kWh</span></div>
+    </div>
+
+    <div class="sub-head">Rates and markup</div>
+    <div class="field">
+      <label for="machineRate">Machine cost <span>per hour</span></label>
+      <div class="inp"><input id="machineRate" type="number" inputmode="decimal" step="any" min="0"><span class="unit">₹/h</span></div>
+    </div>
+    <div class="field">
+      <label for="failedPct">Failed-print allowance</label>
+      <div class="inp"><input id="failedPct" type="number" inputmode="decimal" step="any" min="0"><span class="unit">× material</span></div>
+    </div>
+    <div class="field">
+      <label for="labourPct">Labour</label>
+      <div class="inp"><input id="labourPct" type="number" inputmode="decimal" step="any" min="0"><span class="unit">× subtotal</span></div>
+    </div>
+    <div class="field">
+      <label for="otherPct">Other overheads</label>
+      <div class="inp"><input id="otherPct" type="number" inputmode="decimal" step="any" min="0"><span class="unit">× subtotal</span></div>
+    </div>
+    <div class="field">
+      <label for="profitMargin">Profit markup</label>
+      <div class="inp"><input id="profitMargin" type="number" inputmode="decimal" step="any" min="0"><span class="unit">× cost</span></div>
+    </div>
+    <div class="err" id="err"></div>
+
+    <div class="actions">
+      <button id="reset" type="button">Reset to defaults</button>
+    </div>
+  </section>
+
+  <aside class="result">
+    <div class="total" id="totalBox">
+      <div class="l">Price with markup</div>
+      <div class="v" id="kTotal">–</div>
+      <div class="s" id="kProfitLine">–</div>
+    </div>
+
+    <section class="card">
+      <h2>Breakdown</h2>
+      <div id="calc"></div>
+    </section>
+  </aside>
+</div>
+
+<div class="foot">
+  Energy = electricity rate × print time. Failed-print allowance applies to material only.
+  Markup is applied to total cost. Figures are estimates; they do not include shipping, packaging, or sales tax.
+</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const DEFAULTS = {
+  filamentCostPerGram: 0.8, filamentUsedG: 100, printTimeH: 1, electricityPerKwh: 5,
+  machineRate: 14, failedPct: 0.5, labourPct: 0.3, otherPct: 0.1, profitMargin: 1
+};
+const INPUT_IDS = Object.keys(DEFAULTS);
+
+const fmt = n => '₹' + (isFinite(n) ? n.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '–');
+
+function read(){
+  const v = {};
+  for (const k of INPUT_IDS) {
+    const raw = $(k).value.trim();
+    const n = parseFloat(raw);
+    v[k] = raw === '' || !isFinite(n) || n < 0 ? 0 : n;
+  }
+  return v;
+}
+
+function calculate(v){
+  const material     = v.filamentCostPerGram * v.filamentUsedG;
+  const failed       = material * v.failedPct;
+  const machine      = v.printTimeH * v.machineRate;
+  const energy       = v.electricityPerKwh * v.printTimeH;
+  const subtotal     = material + failed + machine + energy;
+  const labour       = subtotal * v.labourPct;
+  const other        = subtotal * v.otherPct;
+  const totalCost    = subtotal + labour + other;
+  const inhouse      = material + machine + energy;
+  const priceWithMarkup = totalCost + totalCost * v.profitMargin;
+  const profit       = priceWithMarkup - inhouse;
+  return {material, failed, machine, energy, subtotal, labour, other, totalCost, inhouse, priceWithMarkup, profit};
+}
+
+const LINES = [
+  {label: 'Filament',            key: 'material', note: 'price × grams'},
+  {label: 'Failed-print allowance', key: 'failed', note: 'material × allowance'},
+  {label: 'Machine time',        key: 'machine',  note: 'hours × machine rate'},
+  {label: 'Electricity',         key: 'energy',   note: 'rate × hours'},
+  {label: 'Subtotal',            key: 'subtotal', note: 'sum of the four above', sum: true},
+  {label: 'Labour',              key: 'labour',   note: 'subtotal × labour %'},
+  {label: 'Other overheads',     key: 'other',    note: 'subtotal × overhead %'},
+  {label: 'Total cost',          key: 'totalCost', note: 'subtotal + labour + overheads', sum: true},
+  {label: 'Cash cost (in-house)', key: 'inhouse', note: 'filament + machine + electricity'},
+];
+
+function render(){
+  const v = read();
+  const r = calculate(v);
+  const max = Math.max(r.priceWithMarkup, r.totalCost, 1);
+
+  $('calc').innerHTML = LINES.map(l => `
+    <div class="line ${l.sum ? 'sum' : ''}">
+      <span>${l.label}<small>${l.note}</small>
+        <div class="bar"><i style="width:${Math.min(100, Math.max(0, r[l.key] / max * 100)).toFixed(1)}%"></i></div>
+      </span>
+      <b>${fmt(r[l.key])}</b>
+    </div>`).join('');
+
+  $('kTotal').textContent = fmt(r.priceWithMarkup);
+  $('kProfitLine').textContent = `Markup profit ${fmt(r.profit)} over cash cost ${fmt(r.inhouse)}`;
+  const box = $('totalBox');
+  box.className = 'total' + (r.profit > 0 ? ' profit' : r.profit < 0 ? ' loss' : '');
+
+  const bad = INPUT_IDS.some(k => $(k).value.trim() !== '' && (parseFloat($(k).value) < 0 || !isFinite(parseFloat($(k).value))));
+  $('err').textContent = bad ? 'Negative or invalid values are treated as 0.' : '';
+}
+
+for (const k of INPUT_IDS) $(k).addEventListener('input', render);
+$('reset').addEventListener('click', () => {
+  for (const k of INPUT_IDS) $(k).value = DEFAULTS[k];
+  render();
+});
+for (const k of INPUT_IDS) $(k).value = DEFAULTS[k];
+render();
+</script>
+</body>
+</html>
